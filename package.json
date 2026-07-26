@@ -1,0 +1,31 @@
+{
+  "name": "urbangate",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @urbangate/database generate",
+    "db:migrate": "pnpm --filter @urbangate/database migrate:dev",
+    "db:push": "pnpm --filter @urbangate/database push",
+    "db:seed": "pnpm --filter @urbangate/database seed",
+    "db:reset": "pnpm db:push && pnpm db:seed",
+    "mongo:rs": "powershell -ExecutionPolicy Bypass -File ./scripts/start-mongo-rs.ps1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "eslint": "^9.22.0",
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.1"
+  }
+}

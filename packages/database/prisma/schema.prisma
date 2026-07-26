@@ -1,0 +1,386 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  DISABLED
+}
+
+enum UnitRelationshipType {
+  OWNER
+  CO_OWNER
+  TENANT
+  RESIDENT
+  FAMILY_MEMBER
+}
+
+enum BillingFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  ONE_TIME
+}
+
+enum ChargeCalcMode {
+  FIXED_PER_UNIT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMode {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  UPI
+  MANUAL_ONLINE
+}
+
+enum PaymentStatus {
+  RECORDED
+  REVERSED
+}
+
+enum NoticeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ComplaintStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MeetingStatus {
+  DRAFT
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id              String     @id @default(auto()) @map("_id") @db.ObjectId
+  email           String     @unique
+  passwordHash    String
+  name            String
+  status          UserStatus @default(ACTIVE)
+  isPlatformAdmin Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  sessions          Session[]
+  memberships       SocietyMembership[]
+  unitRelationships UnitRelationship[]
+}
+
+model Session {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @db.ObjectId
+  user            User      @relation(fields: [userId], references: [id])
+  tokenHash       String    @unique
+  activeSocietyId String?   @db.ObjectId
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  revokedAt       DateTime?
+}
+
+model Society {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  slug      String   @unique
+  timezone  String   @default("Asia/Kolkata")
+  locale    String   @default("en-IN")
+  currency  String   @default("INR")
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buildings         Building[]
+  memberships       SocietyMembership[]
+  units             Unit[]
+  maintenanceRules  MaintenanceRule[]
+  billingRuns       BillingRun[]
+  invoices          Invoice[]
+  payments          Payment[]
+  notices           Notice[]
+  complaints        Complaint[]
+  meetings          Meeting[]
+}
+
+model SocietyMembership {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId String   @db.ObjectId
+  society   Society  @relation(fields: [societyId], references: [id])
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  roleKeys  String[]
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([societyId, userId])
+}
+
+model Building {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId String   @db.ObjectId
+  society   Society  @relation(fields: [societyId], references: [id])
+  name      String
+  code      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  units Unit[]
+
+  @@unique([societyId, name])
+}
+
+model Unit {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId  String   @db.ObjectId
+  society    Society  @relation(fields: [societyId], references: [id])
+  buildingId String   @db.ObjectId
+  building   Building @relation(fields: [buildingId], references: [id])
+  number     String
+  floor      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  relationships UnitRelationship[]
+  invoices      Invoice[]
+  payments      Payment[]
+
+  @@unique([societyId, buildingId, number])
+}
+
+model UnitRelationship {
+  id        String               @id @default(auto()) @map("_id") @db.ObjectId
+  societyId String               @db.ObjectId
+  unitId    String               @db.ObjectId
+  unit      Unit                 @relation(fields: [unitId], references: [id])
+  userId    String               @db.ObjectId
+  user      User                 @relation(fields: [userId], references: [id])
+  type      UnitRelationshipType
+  createdAt DateTime             @default(now())
+
+  @@unique([unitId, userId, type])
+}
+
+model AuditLog {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  actorUserId   String?  @db.ObjectId
+  societyId     String?  @db.ObjectId
+  action        String
+  entityType    String
+  entityId      String?
+  before        Json?
+  after         Json?
+  correlationId String?
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+}
+
+model MaintenanceRule {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  societyId String           @db.ObjectId
+  society   Society          @relation(fields: [societyId], references: [id])
+  name      String
+  code      String?
+  calcMode  ChargeCalcMode   @default(FIXED_PER_UNIT)
+  /// Amount in paise (INR * 100). Prisma MongoDB has no Decimal.
+  amount    Int
+  frequency BillingFrequency @default(MONTHLY)
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  versions MaintenanceRuleVersion[]
+
+  @@unique([societyId, name])
+}
+
+model MaintenanceRuleVersion {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  societyId     String         @db.ObjectId
+  ruleId        String         @db.ObjectId
+  rule          MaintenanceRule @relation(fields: [ruleId], references: [id])
+  amount        Int
+  calcMode      ChargeCalcMode
+  effectiveFrom DateTime
+  createdAt     DateTime       @default(now())
+}
+
+model BillingRun {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId       String   @db.ObjectId
+  society         Society  @relation(fields: [societyId], references: [id])
+  label           String
+  periodStart     DateTime
+  periodEnd       DateTime
+  status          String   @default("COMPLETED")
+  createdByUserId String   @db.ObjectId
+  invoiceCount    Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  invoices Invoice[]
+
+  @@unique([societyId, label])
+}
+
+model Invoice {
+  id                 String        @id @default(auto()) @map("_id") @db.ObjectId
+  societyId          String        @db.ObjectId
+  society            Society       @relation(fields: [societyId], references: [id])
+  unitId             String        @db.ObjectId
+  unit               Unit          @relation(fields: [unitId], references: [id])
+  billingRunId       String        @db.ObjectId
+  billingRun         BillingRun    @relation(fields: [billingRunId], references: [id])
+  invoiceNumber      String
+  status             InvoiceStatus @default(ISSUED)
+  periodStart        DateTime
+  periodEnd          DateTime
+  issueDate          DateTime
+  dueDate            DateTime
+  currency           String        @default("INR")
+  subtotal           Int
+  total              Int
+  paidAmount         Int       @default(0)
+  outstandingAmount  Int
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  lines       InvoiceLine[]
+  allocations PaymentAllocation[]
+
+  @@unique([societyId, invoiceNumber])
+  @@unique([billingRunId, unitId])
+}
+
+model InvoiceLine {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  societyId   String  @db.ObjectId
+  invoiceId   String  @db.ObjectId
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  description String
+  ruleId      String? @db.ObjectId
+  amount      Int
+  sortOrder   Int     @default(0)
+}
+
+model Payment {
+  id                  String        @id @default(auto()) @map("_id") @db.ObjectId
+  societyId           String        @db.ObjectId
+  society             Society       @relation(fields: [societyId], references: [id])
+  unitId              String?       @db.ObjectId
+  unit                Unit?         @relation(fields: [unitId], references: [id])
+  amount              Int
+  mode                PaymentMode
+  status              PaymentStatus @default(RECORDED)
+  receiptNumber       String?
+  reference           String?
+  paidAt              DateTime
+  recordedByUserId    String        @db.ObjectId
+  notes               String?
+  reversedAt          DateTime?
+  reversalOfPaymentId String?       @db.ObjectId
+  createdAt           DateTime      @default(now())
+
+  allocations PaymentAllocation[]
+
+  @@unique([societyId, receiptNumber])
+}
+
+model PaymentAllocation {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  societyId String  @db.ObjectId
+  paymentId String  @db.ObjectId
+  payment   Payment @relation(fields: [paymentId], references: [id])
+  invoiceId String  @db.ObjectId
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+  amount    Int
+}
+
+model Notice {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  societyId   String       @db.ObjectId
+  society     Society      @relation(fields: [societyId], references: [id])
+  title       String
+  body        String
+  status      NoticeStatus @default(DRAFT)
+  audience    String       @default("SOCIETY")
+  createdByUserId String   @db.ObjectId
+  publishedAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Complaint {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  societyId       String            @db.ObjectId
+  society         Society           @relation(fields: [societyId], references: [id])
+  unitId          String?           @db.ObjectId
+  category        String
+  subject         String
+  description     String
+  priority        ComplaintPriority @default(MEDIUM)
+  status          ComplaintStatus   @default(OPEN)
+  createdByUserId String            @db.ObjectId
+  assignedToUserId String?          @db.ObjectId
+  resolvedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model Meeting {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  societyId       String        @db.ObjectId
+  society         Society       @relation(fields: [societyId], references: [id])
+  title           String
+  agenda          String
+  description     String?
+  scheduledAt     DateTime
+  location        String?
+  onlineLink      String?
+  audience        String        @default("SOCIETY")
+  status          MeetingStatus @default(DRAFT)
+  minutes         String?
+  createdByUserId String        @db.ObjectId
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model HealthCheck {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+}
