@@ -29,10 +29,14 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const text = await response.text();
   const data = text ? (JSON.parse(text) as unknown) : null;
   if (!response.ok) {
-    const message =
-      data && typeof data === 'object' && data !== null && 'error' in data
-        ? String((data as { error: { message?: string } }).error?.message ?? 'Request failed')
-        : 'Request failed';
+    let message = 'Request failed';
+    if (data && typeof data === 'object' && data !== null && 'error' in data) {
+      const err = (data as { error?: { message?: string; details?: unknown } }).error;
+      message = String(err?.message ?? 'Request failed');
+      if (Array.isArray(err?.details) && err.details.length) {
+        message = `${message}: ${err.details.map(String).join('; ')}`;
+      }
+    }
     throw new ApiError(message, response.status, data);
   }
   return data as T;

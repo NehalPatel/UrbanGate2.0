@@ -34,6 +34,7 @@ type Unit = {
 type Membership = {
   id: string;
   roleKeys: string[];
+  temporaryPassword?: string;
   user: { id: string; email: string; name: string; status: string };
 };
 
@@ -62,6 +63,7 @@ export default function SetupPage() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [members, setMembers] = useState<Membership[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [inviteHint, setInviteHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Step 1
@@ -246,6 +248,7 @@ export default function SetupPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setInviteHint(null);
     try {
       const membership = await api<Membership>('/memberships/invite', {
         method: 'POST',
@@ -268,6 +271,12 @@ export default function SetupPage() {
             type: assignType,
           }),
         });
+      }
+
+      if (membership.temporaryPassword) {
+        setInviteHint(
+          `Invited ${membership.user.email}. Temporary password: ${membership.temporaryPassword}`,
+        );
       }
 
       setMemberName('');
@@ -643,6 +652,9 @@ export default function SetupPage() {
               <button type="submit" className={btnPrimary} disabled={busy}>
                 Invite & assign
               </button>
+              {inviteHint ? (
+                <p className="text-theme-sm text-success-600">{inviteHint}</p>
+              ) : null}
             </form>
           </Card>
           <div className="xl:col-span-2 space-y-6">

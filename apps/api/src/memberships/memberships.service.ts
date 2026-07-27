@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SocietiesService } from '../societies/societies.service';
 import { AuditService } from '../audit/audit.service';
+import { EmailService } from '../email/email.service';
 import type { AuthUser } from '../auth/auth.types';
 
 @Injectable()
@@ -10,6 +12,7 @@ export class MembershipsService {
     private readonly prisma: PrismaService,
     private readonly societies: SocietiesService,
     private readonly audit: AuditService,
+    private readonly email: EmailService,
   ) {}
 
   async list(user: AuthUser): Promise<unknown> {
@@ -25,21 +28,50 @@ export class MembershipsService {
 
   async invite(
     user: AuthUser,
-    input: { email: string; name: string; roleKeys: string[] },
+    input: { email: string; name: string; roleKeys: string[]; temporaryPassword?: string },
   ): Promise<unknown> {
     const societyId = this.societies.requireActiveSociety(user);
     const email = input.email.trim().toLowerCase();
     let memberUser = await this.prisma.user.findUnique({ where: { email } });
+    let temporaryPassword: string | undefined;
+
     if (!memberUser) {
-      // Invite placeholder account — password set later via reset (MVP-1 stub uses random hash)
       const argon2 = await import('argon2');
+      temporaryPassword =
+        input.temporaryPassword?.trim() ||
+        `Ug-${randomBytes(4).toString('hex')}!`;
       memberUser = await this.prisma.user.create({
         data: {
           email,
           name: input.name.trim(),
-          passwordHash: await argon2.hash(`invite-${Date.now()}`, { type: argon2.argon2id }),
-          status: 'INVITED',
+          passwordHash: await argon2.hash(temporaryPassword, { type: argon2.argon2id }),
+          status: 'ACTIVE',
         },
+      });
+
+      await this.email.send({
+        to: email,
+        subject: 'You are invited to UrbanGate',
+        text: `Hi ${input.name.trim()},\n\nYou have been invited to UrbanGate.\nEmail: ${email}\nTemporary password: ${temporaryPassword}\n\nSign in at the resident portal and change your password when that flow is available.`,
+      });
+    } else if (memberUser.status === 'INVITED') {
+      // Reactivate stuck invites from earlier builds so the member can sign in.
+      const argon2 = await import('argon2');
+      temporaryPassword =
+        input.temporaryPassword?.trim() ||
+        `Ug-${randomBytes(4).toString('hex')}!`;
+      memberUser = await this.prisma.user.update({
+        where: { id: memberUser.id },
+        data: {
+          name: input.name.trim() || memberUser.name,
+          passwordHash: await argon2.hash(temporaryPassword, { type: argon2.argon2id }),
+          status: 'ACTIVE',
+        },
+      });
+      await this.email.send({
+        to: email,
+        subject: 'Your UrbanGate account is ready',
+        text: `Hi ${memberUser.name},\n\nYour UrbanGate login is ready.\nEmail: ${email}\nTemporary password: ${temporaryPassword}\n`,
       });
     }
 
@@ -71,6 +103,9 @@ export class MembershipsService {
       after: { userId: memberUser.id, roleKeys: membership.roleKeys },
     });
 
-    return membership;
+    return {
+      ...membership,
+      temporaryPassword,
+    };
   }
 }

@@ -3,9 +3,10 @@ import { MembershipsController } from './memberships.controller';
 import { MembershipsService } from './memberships.service';
 import { SocietiesModule } from '../societies/societies.module';
 import { AuthModule } from '../auth/auth.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [AuthModule, SocietiesModule],
+  imports: [AuthModule, SocietiesModule, EmailModule],
   controllers: [MembershipsController],
   providers: [MembershipsService],
 })

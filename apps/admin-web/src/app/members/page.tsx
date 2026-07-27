@@ -1,5 +1,3 @@
-'use client';
-
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '../../lib/api';
@@ -8,6 +6,7 @@ import { btnPrimary, Card, fieldClass, labelClass, PageHeader } from '../../comp
 type Membership = {
   id: string;
   roleKeys: string[];
+  temporaryPassword?: string;
   user: { id: string; email: string; name: string; status: string };
 };
 
@@ -18,6 +17,7 @@ export default function MembersPage() {
   const [name, setName] = useState('');
   const [roleKeys, setRoleKeys] = useState('RESIDENT');
   const [error, setError] = useState<string | null>(null);
+  const [inviteHint, setInviteHint] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -38,8 +38,9 @@ export default function MembersPage() {
   async function onInvite(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setInviteHint(null);
     try {
-      await api('/memberships/invite', {
+      const result = await api<Membership>('/memberships/invite', {
         method: 'POST',
         body: JSON.stringify({
           email,
@@ -50,6 +51,11 @@ export default function MembersPage() {
             .filter(Boolean),
         }),
       });
+      if (result.temporaryPassword) {
+        setInviteHint(
+          `Invite created for ${result.user.email}. Temporary password: ${result.temporaryPassword}`,
+        );
+      }
       setEmail('');
       setName('');
       await load();
@@ -107,6 +113,7 @@ export default function MembersPage() {
               />
             </div>
             {error ? <p className="text-theme-sm text-error-600">{error}</p> : null}
+            {inviteHint ? <p className="text-theme-sm text-success-600">{inviteHint}</p> : null}
             <button type="submit" className={btnPrimary}>
               Invite
             </button>

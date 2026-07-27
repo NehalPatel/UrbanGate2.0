@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { SocietiesService } from '../societies/societies.service';
 import type { AuthUser } from '../auth/auth.types';
 import { canTransitionVisitor } from './visitor.rules';
+import { assertMongoObjectId } from '../common/mongo-id';
 
 @Injectable()
 export class GateService {
@@ -440,6 +441,7 @@ export class GateService {
     extra: Record<string, unknown>,
   ) {
     const societyId = this.societies.requireActiveSociety(user);
+    assertMongoObjectId(id, 'visitor id');
     const existing = await this.prisma.visitor.findFirst({ where: { id, societyId } });
     if (!existing) {
       throw new NotFoundException({ error: 'NOT_FOUND', message: 'Visitor not found' });
