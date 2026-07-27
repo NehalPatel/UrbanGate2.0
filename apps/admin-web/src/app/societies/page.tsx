@@ -7,9 +7,18 @@ import {
   btnPrimary,
   btnSecondary,
   Card,
+  DataTable,
+  EditIconButton,
+  EmptyRow,
   fieldClass,
+  IconButton,
   labelClass,
   PageHeader,
+  RowActions,
+  Td,
+  Th,
+  THead,
+  Tr,
 } from '../../components/ui';
 
 type Society = { id: string; name: string; slug: string; timezone: string };
@@ -17,7 +26,9 @@ type Society = { id: string; name: string; slug: string; timezone: string };
 export default function SocietiesPage() {
   const router = useRouter();
   const [societies, setSocieties] = useState<Society[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -36,15 +47,35 @@ export default function SocietiesPage() {
     void load();
   }, []);
 
-  async function onCreate(event: FormEvent) {
+  function startEdit(s: Society) {
+    setEditingId(s.id);
+    setName(s.name);
+    setTimezone(s.timezone);
+    setError(null);
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setName('');
+    setTimezone('Asia/Kolkata');
+  }
+
+  async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
-      await api('/societies', { method: 'POST', body: JSON.stringify({ name }) });
-      setName('');
+      if (editingId) {
+        await api(`/societies/${editingId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ name, timezone }),
+        });
+      } else {
+        await api('/societies', { method: 'POST', body: JSON.stringify({ name }) });
+      }
+      resetForm();
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Create failed');
+      setError(err instanceof ApiError ? err.message : 'Save failed');
     }
   }
 
@@ -66,8 +97,8 @@ export default function SocietiesPage() {
         ]}
       />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card title="Create society">
-          <form onSubmit={(e) => void onCreate(e)} className="space-y-4">
+        <Card title={editingId ? 'Edit society' : 'Create society'}>
+          <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
             <div>
               <label className={labelClass} htmlFor="society-name">
                 Society name
@@ -81,52 +112,77 @@ export default function SocietiesPage() {
                 minLength={2}
               />
             </div>
+            {editingId ? (
+              <div>
+                <label className={labelClass} htmlFor="society-tz">
+                  Timezone
+                </label>
+                <input
+                  id="society-tz"
+                  className={fieldClass}
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                />
+              </div>
+            ) : null}
             {error ? <p className="text-theme-sm text-error-600">{error}</p> : null}
-            <button type="submit" className={btnPrimary}>
-              Create
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className={btnPrimary}>
+                {editingId ? 'Save changes' : 'Create'}
+              </button>
+              {editingId ? (
+                <button type="button" className={btnSecondary} onClick={resetForm}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </form>
         </Card>
         <div className="xl:col-span-2">
-          <Card title="Your societies">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-theme-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-gray-500 dark:border-gray-800">
-                    <th className="px-1 py-3 font-medium">Name</th>
-                    <th className="px-1 py-3 font-medium">Slug</th>
-                    <th className="px-1 py-3 font-medium">Timezone</th>
-                    <th className="px-1 py-3 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {societies.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-3 text-gray-500">
-                        No societies yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    societies.map((s) => (
-                      <tr key={s.id} className="border-b border-gray-100 dark:border-gray-800">
-                        <td className="px-1 py-3 text-gray-800 dark:text-white/90">{s.name}</td>
-                        <td className="px-1 py-3 text-gray-500">{s.slug}</td>
-                        <td className="px-1 py-3 text-gray-500">{s.timezone}</td>
-                        <td className="px-1 py-3">
-                          <button
-                            type="button"
-                            className={btnSecondary}
+          <Card title="Your societies" bodyClassName="p-0">
+            <DataTable>
+              <THead>
+                <tr>
+                  <Th>Name</Th>
+                  <Th>Slug</Th>
+                  <Th>Timezone</Th>
+                  <Th className="text-right">Actions</Th>
+                </tr>
+              </THead>
+              <tbody>
+                {societies.length === 0 ? (
+                  <EmptyRow colSpan={4} message="No societies yet." />
+                ) : (
+                  societies.map((s) => (
+                    <Tr key={s.id}>
+                      <Td className="font-medium">{s.name}</Td>
+                      <Td muted>{s.slug}</Td>
+                      <Td muted>{s.timezone}</Td>
+                      <Td>
+                        <RowActions>
+                          <EditIconButton onClick={() => startEdit(s)} />
+                          <IconButton
+                            label="Set active"
+                            tone="brand"
                             onClick={() => void activate(s.id)}
                           >
-                            Set active
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                              <path
+                                d="M20 6 9 17l-5-5"
+                                stroke="currentColor"
+                                strokeWidth="1.75"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </IconButton>
+                        </RowActions>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </tbody>
+            </DataTable>
           </Card>
         </div>
       </div>

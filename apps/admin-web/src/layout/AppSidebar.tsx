@@ -2,32 +2,80 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, type ComponentType } from 'react';
 import { useSidebar } from '../context/SidebarContext';
 import { cn } from '../lib/cn';
 
-const NAV = [
-  { href: '/', label: 'Dashboard', icon: GridIcon },
-  { href: '/setup', label: 'Setup', icon: SetupIcon },
-  { href: '/societies', label: 'Societies', icon: BuildingIcon },
-  { href: '/buildings', label: 'Buildings', icon: LayersIcon },
-  { href: '/units', label: 'Units', icon: DoorIcon },
-  { href: '/members', label: 'Members', icon: UsersIcon },
-  { href: '/maintenance', label: 'Maintenance', icon: WrenchIcon },
-  { href: '/finance', label: 'Finance', icon: WalletIcon },
-  { href: '/notices', label: 'Notices', icon: MegaphoneIcon },
-  { href: '/complaints', label: 'Complaints', icon: AlertIcon },
-  { href: '/meetings', label: 'Meetings', icon: CalendarIcon },
-] as const;
+type NavItem = { href: string; label: string; icon: ComponentType };
+type NavGroup = { label: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Overview',
+    items: [
+      { href: '/', label: 'Dashboard', icon: GridIcon },
+      { href: '/setup', label: 'Setup', icon: SetupIcon },
+      { href: '/notifications', label: 'Notifications', icon: BellIcon },
+    ],
+  },
+  {
+    label: 'Property',
+    items: [
+      { href: '/societies', label: 'Societies', icon: BuildingIcon },
+      { href: '/buildings', label: 'Buildings', icon: LayersIcon },
+      { href: '/units', label: 'Units', icon: DoorIcon },
+      { href: '/members', label: 'Members', icon: UsersIcon },
+    ],
+  },
+  {
+    label: 'Finance',
+    items: [
+      { href: '/maintenance', label: 'Maintenance', icon: WrenchIcon },
+      { href: '/finance', label: 'Finance', icon: WalletIcon },
+    ],
+  },
+  {
+    label: 'Community',
+    items: [
+      { href: '/notices', label: 'Notices', icon: MegaphoneIcon },
+      { href: '/complaints', label: 'Complaints', icon: AlertIcon },
+      { href: '/meetings', label: 'Meetings', icon: CalendarIcon },
+    ],
+  },
+  {
+    label: 'Gate',
+    items: [{ href: '/gate', label: 'Gate desk', icon: ShieldIcon }],
+  },
+  {
+    label: 'Facilities',
+    items: [
+      { href: '/amenities', label: 'Amenities', icon: CalendarIcon },
+      { href: '/vehicles', label: 'Vehicles', icon: CarIcon },
+      { href: '/household', label: 'Household', icon: HomeIcon },
+      { href: '/service-personnel', label: 'Service staff', icon: WrenchIcon },
+    ],
+  },
+];
 
 function isActivePath(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function groupHasActive(pathname: string, group: NavGroup) {
+  return group.items.some((item) => isActivePath(pathname, item.href));
+}
+
 export function AppSidebar() {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const showLabel = isExpanded || isHovered || isMobileOpen;
+  /** All groups start collapsed; user expands categories manually. */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  function toggleGroup(label: string) {
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+  }
 
   return (
     <aside
@@ -59,46 +107,100 @@ export function AppSidebar() {
       </div>
 
       <div className="no-scrollbar flex flex-col overflow-y-auto duration-300 ease-linear">
-        <nav className="mb-6">
-          <h2
-            className={cn(
-              'mb-4 flex text-xs leading-[20px] text-gray-400 uppercase',
-              !showLabel ? 'lg:justify-center' : 'justify-start',
-            )}
-          >
-            {showLabel ? 'Menu' : '···'}
-          </h2>
-          <ul className="flex flex-col gap-1">
-            {NAV.map((item) => {
-              const active = isActivePath(pathname, item.href);
-              const Icon = item.icon;
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      'menu-item group',
-                      active ? 'menu-item-active' : 'menu-item-inactive',
-                      !showLabel ? 'lg:justify-center' : 'lg:justify-start',
-                    )}
-                  >
+        <nav className="mb-6 space-y-2">
+          {NAV_GROUPS.map((group) => {
+            const isOpen = Boolean(openGroups[group.label]);
+            const hasActive = groupHasActive(pathname, group);
+            return (
+              <div key={group.label}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.label)}
+                  aria-expanded={isOpen}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors',
+                    hasActive
+                      ? 'text-brand-600 dark:text-brand-400'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800 dark:hover:bg-white/[0.03] dark:hover:text-white/80',
+                    !showLabel ? 'lg:justify-center' : 'justify-between',
+                  )}
+                  title={group.label}
+                >
+                  {showLabel ? (
+                    <>
+                      <span className="text-xs font-semibold tracking-wide uppercase">
+                        {group.label}
+                      </span>
+                      <ChevronIcon open={isOpen} />
+                    </>
+                  ) : (
                     <span
                       className={cn(
-                        'menu-item-icon-size',
-                        active ? 'menu-item-icon-active' : 'menu-item-icon-inactive',
+                        'flex h-2 w-2 rounded-full',
+                        hasActive ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600',
                       )}
-                    >
-                      <Icon />
-                    </span>
-                    {showLabel ? <span className="menu-item-text">{item.label}</span> : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                    />
+                  )}
+                </button>
+                {isOpen ? (
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {group.items.map((item) => {
+                      const active = isActivePath(pathname, item.href);
+                      const Icon = item.icon;
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            className={cn(
+                              'menu-item group',
+                              active ? 'menu-item-active' : 'menu-item-inactive',
+                              !showLabel ? 'lg:justify-center' : 'lg:justify-start',
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                'menu-item-icon-size',
+                                active ? 'menu-item-icon-active' : 'menu-item-icon-inactive',
+                              )}
+                            >
+                              <Icon />
+                            </span>
+                            {showLabel ? (
+                              <span className="menu-item-text">{item.label}</span>
+                            ) : null}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
         </nav>
       </div>
     </aside>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className={cn('shrink-0 transition-transform duration-200', open ? 'rotate-180' : '')}
+    >
+      <path
+        d="m6 9 6 6 6-6"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -240,6 +342,62 @@ function CalendarIcon() {
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M8 2v3M16 2v3M3 9h18M5 5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9ZM10.3 21a1.94 1.94 0 0 0 3.4 0"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6l-8-3Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CarIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M3 13h18l-1.5-4.5A2 2 0 0 0 17.6 7H6.4a2 2 0 0 0-1.9 1.5L3 13Zm2 0v4m14-4v4M6.5 17a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm11 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2v-9Z"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"

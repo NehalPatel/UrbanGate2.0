@@ -11,15 +11,17 @@ Phase 0 decisions required by [URBANGATE-2-MASTER-SPEC.md](../URBANGATE-2-MASTER
 **Gate A passed (2026-07-26):** Phase 0 ADRs Accepted.  
 **2026-07-26 amendment:** [ADR-017](./017-mongodb.md) locks **MongoDB** (replaces PostgreSQL). Docker Compose deferred until Docker is available.
 
-**Implementation progress (2026-07-27):** No new ADRs. Work follows the locked decisions below. See [PROJECT-PLANNER.md](../PROJECT-PLANNER.md).
+**Implementation progress (2026-07-28):** No new ADRs. MongoDB remains primary; [ADR-017](./017-mongodb.md) notes a future Postgres portability path (no dual DB). MVP-4 Gate started. See [PROJECT-PLANNER.md](../PROJECT-PLANNER.md).
 
 | Gate / MVP | Status | Notes tied to ADRs |
 |------------|--------|--------------------|
 | Gate B (MVP-0 foundation) | Passed | NestJS + Next.js monorepo, Prisma MongoDB, health, CI |
 | MVP-1 Identity & tenant | Done | Cookie sessions ([004](./004-auth-session.md)), `societyId` tenancy ([005](./005-tenant-resolution.md), [006](./006-prisma-tenancy.md)), ObjectId ([003](./003-uuid-strategy.md)), audit ([011](./011-audit-log-format.md)) |
 | MVP-2 Finance | Done | Money as integer paise ([012](./012-money-currency.md)); invoices, payments, receipts, collection report |
-| MVP-3 Community | In progress | Notices, complaints, meetings shipped; attachments + notifications open |
-| Local Mongo | Required | Replica set via `pnpm mongo:rs` (port **27018**); `DATABASE_URL` must include `replicaSet=rs0&directConnection=true` per [017](./017-mongodb.md) |
+| MVP-3 Community | Done | Notices, complaints, meetings; attachments ([007](./007-object-storage.md)); in-app + console email ([008](./008-email-provider.md)) |
+| MVP-4 Gate | Core done | Visitors, gates, security PWA, lookups, emergency contacts |
+| MVP-5 Facilities | Core done | Amenities, bookings, vehicles, household, service personnel |
+| Local Mongo | Required | Replica set via `pnpm mongo:rs` (port **27018**); `DATABASE_URL` must include `replicaSet=rs0&directConnection=true` per [017](./017-mongodb.md). Future Postgres path noted in ADR-017 (not active). |
 
 ## Index
 

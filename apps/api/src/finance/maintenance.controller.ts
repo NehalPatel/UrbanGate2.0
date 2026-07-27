@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import type { BillingFrequency } from '@urbangate/database';
 import { AuthGuard } from '../auth/auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -36,5 +36,11 @@ export class MaintenanceController {
     @Body() body: UpdateMaintenanceRuleDto,
   ): Promise<unknown> {
     return this.maintenanceService.update(user, id, body);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('maintenance.manage')
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<unknown> {
+    return this.maintenanceService.remove(user, id);
   }
 }

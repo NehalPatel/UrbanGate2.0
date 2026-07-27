@@ -129,4 +129,25 @@ export class MaintenanceService {
 
     return { ...rule, amount: paiseToRupees(rule.amount) };
   }
+
+  async remove(user: AuthUser, id: string) {
+    const societyId = this.societies.requireActiveSociety(user);
+    const existing = await this.prisma.maintenanceRule.findFirst({
+      where: { id, societyId },
+    });
+    if (!existing) {
+      throw new NotFoundException({ error: 'NOT_FOUND', message: 'Rule not found' });
+    }
+    await this.prisma.maintenanceRuleVersion.deleteMany({ where: { ruleId: id } });
+    await this.prisma.maintenanceRule.delete({ where: { id } });
+    await this.audit.record({
+      actorUserId: user.id,
+      societyId,
+      action: 'maintenance.delete',
+      entityType: 'MaintenanceRule',
+      entityId: id,
+      before: { name: existing.name },
+    });
+    return { ok: true };
+  }
 }

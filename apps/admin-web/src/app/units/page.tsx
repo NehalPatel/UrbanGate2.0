@@ -3,13 +3,30 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '../../lib/api';
-import { btnPrimary, Card, fieldClass, labelClass, PageHeader } from '../../components/ui';
+import {
+  btnPrimary,
+  btnSecondary,
+  Card,
+  DataTable,
+  DeleteIconButton,
+  EditIconButton,
+  EmptyRow,
+  fieldClass,
+  labelClass,
+  PageHeader,
+  RowActions,
+  Td,
+  Th,
+  THead,
+  Tr,
+} from '../../components/ui';
 
 type Building = { id: string; name: string };
 type Unit = {
   id: string;
   number: string;
   floor: string | null;
+  buildingId: string;
   building: Building;
 };
 
@@ -17,6 +34,7 @@ export default function UnitsPage() {
   const router = useRouter();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [buildingId, setBuildingId] = useState('');
   const [number, setNumber] = useState('');
   const [floor, setFloor] = useState('');
@@ -41,19 +59,51 @@ export default function UnitsPage() {
     void load();
   }, []);
 
-  async function onCreate(event: FormEvent) {
+  function startEdit(u: Unit) {
+    setEditingId(u.id);
+    setBuildingId(u.buildingId || u.building.id);
+    setNumber(u.number);
+    setFloor(u.floor ?? '');
+    setError(null);
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setNumber('');
+    setFloor('');
+  }
+
+  async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
-      await api('/units', {
-        method: 'POST',
-        body: JSON.stringify({ buildingId, number, floor: floor || undefined }),
-      });
-      setNumber('');
-      setFloor('');
+      if (editingId) {
+        await api(`/units/${editingId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ number, floor: floor || undefined }),
+        });
+      } else {
+        await api('/units', {
+          method: 'POST',
+          body: JSON.stringify({ buildingId, number, floor: floor || undefined }),
+        });
+      }
+      resetForm();
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Create failed');
+      setError(err instanceof ApiError ? err.message : 'Save failed');
+    }
+  }
+
+  async function onDelete(id: string, label: string) {
+    if (!window.confirm(`Delete unit "${label}"?`)) return;
+    setError(null);
+    try {
+      await api(`/units/${id}`, { method: 'DELETE' });
+      if (editingId === id) resetForm();
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Delete failed');
     }
   }
 
@@ -67,8 +117,8 @@ export default function UnitsPage() {
         ]}
       />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card title="Add unit">
-          <form onSubmit={(e) => void onCreate(e)} className="space-y-4">
+        <Card title={editingId ? 'Edit unit' : 'Add unit'}>
+          <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
             <div>
               <label className={labelClass} htmlFor="building">
                 Building
@@ -79,6 +129,7 @@ export default function UnitsPage() {
                 value={buildingId}
                 onChange={(e) => setBuildingId(e.target.value)}
                 required
+                disabled={Boolean(editingId)}
               >
                 {buildings.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -111,31 +162,49 @@ export default function UnitsPage() {
               />
             </div>
             {error ? <p className="text-theme-sm text-error-600">{error}</p> : null}
-            <button type="submit" className={btnPrimary} disabled={!buildingId}>
-              Add
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className={btnPrimary} disabled={!buildingId}>
+                {editingId ? 'Save changes' : 'Add'}
+              </button>
+              {editingId ? (
+                <button type="button" className={btnSecondary} onClick={resetForm}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </form>
         </Card>
         <div className="xl:col-span-2">
-          <Card title="Units">
-            <table className="min-w-full text-left text-theme-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-gray-500 dark:border-gray-800">
-                  <th className="px-1 py-3 font-medium">Building</th>
-                  <th className="px-1 py-3 font-medium">Number</th>
-                  <th className="px-1 py-3 font-medium">Floor</th>
+          <Card title="Units" bodyClassName="p-0">
+            <DataTable>
+              <THead>
+                <tr>
+                  <Th>Building</Th>
+                  <Th>Number</Th>
+                  <Th>Floor</Th>
+                  <Th className="text-right">Actions</Th>
                 </tr>
-              </thead>
+              </THead>
               <tbody>
-                {units.map((u) => (
-                  <tr key={u.id} className="border-b border-gray-100 dark:border-gray-800">
-                    <td className="px-1 py-3 text-gray-800 dark:text-white/90">{u.building.name}</td>
-                    <td className="px-1 py-3 text-gray-500">{u.number}</td>
-                    <td className="px-1 py-3 text-gray-500">{u.floor ?? '—'}</td>
-                  </tr>
-                ))}
+                {units.length === 0 ? (
+                  <EmptyRow colSpan={4} message="No units yet." />
+                ) : (
+                  units.map((u) => (
+                    <Tr key={u.id}>
+                      <Td className="font-medium">{u.building.name}</Td>
+                      <Td muted>{u.number}</Td>
+                      <Td muted>{u.floor ?? '—'}</Td>
+                      <Td>
+                        <RowActions>
+                          <EditIconButton onClick={() => startEdit(u)} />
+                          <DeleteIconButton onClick={() => void onDelete(u.id, u.number)} />
+                        </RowActions>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
               </tbody>
-            </table>
+            </DataTable>
           </Card>
         </div>
       </div>

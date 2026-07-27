@@ -18,6 +18,22 @@ export class CreateNoticeDto {
   publish?: boolean;
 }
 
+export class UpdateNoticeDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  body?: string;
+
+  @IsOptional()
+  @IsString()
+  audience?: string;
+}
+
 export enum ComplaintPriorityDto {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
@@ -103,6 +119,38 @@ export class CreateMeetingDto {
   @IsOptional()
   @IsBoolean()
   schedule?: boolean;
+}
+
+export class UpdateMeetingDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  agenda?: string;
+
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @IsOptional()
+  @IsString()
+  onlineLink?: string;
+
+  @IsOptional()
+  @IsString()
+  audience?: string;
 }
 
 export class CompleteMeetingDto {

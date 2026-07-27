@@ -2,8 +2,17 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiError } from '../../lib/api';
-import { btnPrimary, btnSecondary, Card, fieldClass, labelClass, PageHeader } from '../../components/ui';
+import { api, apiUpload, ApiError, attachmentDownloadUrl } from '../../lib/api';
+import {
+  btnPrimary,
+  btnSecondary,
+  Card,
+  DeleteIconButton,
+  EditIconButton,
+  fieldClass,
+  labelClass,
+  PageHeader,
+} from '../../components/ui';
 
 type Notice = {
   id: string;
@@ -15,17 +24,35 @@ type Notice = {
   createdAt: string;
 };
 
+type Attachment = {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
 export default function NoticesPage() {
   const router = useRouter();
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [attachmentsByNotice, setAttachmentsByNotice] = useState<Record<string, Attachment[]>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [publish, setPublish] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  async function loadAttachments(noticeId: string) {
+    const rows = await api<Attachment[]>(
+      `/attachments?entityType=Notice&entityId=${encodeURIComponent(noticeId)}`,
+    );
+    setAttachmentsByNotice((prev) => ({ ...prev, [noticeId]: rows }));
+  }
+
   async function load() {
     try {
-      setNotices(await api<Notice[]>('/notices'));
+      const list = await api<Notice[]>('/notices');
+      setNotices(list);
+      await Promise.all(list.map((n) => loadAttachments(n.id)));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.replace('/login');
@@ -39,19 +66,40 @@ export default function NoticesPage() {
     void load();
   }, []);
 
-  async function onCreate(e: FormEvent) {
+  function resetForm() {
+    setEditingId(null);
+    setTitle('');
+    setBody('');
+    setPublish(true);
+  }
+
+  function startEdit(n: Notice) {
+    setEditingId(n.id);
+    setTitle(n.title);
+    setBody(n.body);
+    setPublish(false);
+    setError(null);
+  }
+
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await api('/notices', {
-        method: 'POST',
-        body: JSON.stringify({ title, body, publish }),
-      });
-      setTitle('');
-      setBody('');
+      if (editingId) {
+        await api(`/notices/${editingId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ title, body }),
+        });
+      } else {
+        await api('/notices', {
+          method: 'POST',
+          body: JSON.stringify({ title, body, publish }),
+        });
+      }
+      resetForm();
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Create failed');
+      setError(err instanceof ApiError ? err.message : 'Save failed');
     }
   }
 
@@ -65,6 +113,33 @@ export default function NoticesPage() {
     await load();
   }
 
+  async function deleteNotice(id: string, label: string) {
+    if (!window.confirm(`Delete notice "${label}"?`)) return;
+    try {
+      await api(`/notices/${id}`, { method: 'DELETE' });
+      if (editingId === id) resetForm();
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Delete failed');
+    }
+  }
+
+  async function onAttach(noticeId: string, file: File | null) {
+    if (!file) return;
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      await apiUpload(
+        `/attachments?entityType=Notice&entityId=${encodeURIComponent(noticeId)}`,
+        fd,
+      );
+      await loadAttachments(noticeId);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Upload failed');
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -75,8 +150,8 @@ export default function NoticesPage() {
         ]}
       />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card title="Create notice">
-          <form onSubmit={(e) => void onCreate(e)} className="space-y-4">
+        <Card title={editingId ? 'Edit notice' : 'Create notice'}>
+          <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
             <div>
               <label className={labelClass} htmlFor="title">
                 Title
@@ -101,18 +176,27 @@ export default function NoticesPage() {
                 required
               />
             </div>
-            <label className="flex items-center gap-2 text-theme-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={publish}
-                onChange={(e) => setPublish(e.target.checked)}
-              />
-              Publish immediately
-            </label>
+            {!editingId ? (
+              <label className="flex items-center gap-2 text-theme-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={publish}
+                  onChange={(e) => setPublish(e.target.checked)}
+                />
+                Publish immediately
+              </label>
+            ) : null}
             {error ? <p className="text-theme-sm text-error-600">{error}</p> : null}
-            <button type="submit" className={btnPrimary}>
-              Save notice
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className={btnPrimary}>
+                {editingId ? 'Save changes' : 'Save notice'}
+              </button>
+              {editingId ? (
+                <button type="button" className={btnSecondary} onClick={resetForm}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </form>
         </Card>
         <div className="xl:col-span-2">
@@ -130,8 +214,31 @@ export default function NoticesPage() {
                       <p className="mt-2 text-theme-xs text-gray-400">
                         {n.status} · {n.audience}
                       </p>
+                      <ul className="mt-2 space-y-1">
+                        {(attachmentsByNotice[n.id] ?? []).map((a) => (
+                          <li key={a.id} className="text-theme-xs">
+                            <a
+                              className="text-brand-600 hover:underline"
+                              href={attachmentDownloadUrl(a.id)}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {a.originalName}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                      <label className="mt-2 inline-block text-theme-xs text-gray-500">
+                        Attach file
+                        <input
+                          type="file"
+                          className="ml-2"
+                          onChange={(e) => void onAttach(n.id, e.target.files?.[0] ?? null)}
+                        />
+                      </label>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <EditIconButton onClick={() => startEdit(n)} />
                       {n.status === 'DRAFT' ? (
                         <button
                           type="button"
@@ -150,6 +257,7 @@ export default function NoticesPage() {
                           Archive
                         </button>
                       ) : null}
+                      <DeleteIconButton onClick={() => void deleteNotice(n.id, n.title)} />
                     </div>
                   </div>
                 </li>

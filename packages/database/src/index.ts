@@ -13,6 +13,8 @@ export type {
   ComplaintStatus,
   ComplaintPriority,
   MeetingStatus,
+  VisitorStatus,
+  BookingStatus,
 } from '@prisma/client';
 
 declare global {

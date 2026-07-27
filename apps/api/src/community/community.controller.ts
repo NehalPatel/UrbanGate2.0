@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import type { ComplaintPriority, ComplaintStatus } from '@urbangate/database';
 import { AuthGuard } from '../auth/auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -12,6 +21,8 @@ import {
   CreateMeetingDto,
   CreateNoticeDto,
   UpdateComplaintStatusDto,
+  UpdateMeetingDto,
+  UpdateNoticeDto,
 } from './community.dto';
 
 @Controller('notices')
@@ -29,6 +40,22 @@ export class NoticesController {
   @RequirePermissions('notice.create')
   create(@CurrentUser() user: AuthUser, @Body() body: CreateNoticeDto): Promise<unknown> {
     return this.noticesService.create(user, body);
+  }
+
+  @Patch(':id')
+  @RequirePermissions('notice.create')
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: UpdateNoticeDto,
+  ): Promise<unknown> {
+    return this.noticesService.update(user, id, body);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('notice.publish')
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<unknown> {
+    return this.noticesService.remove(user, id);
   }
 
   @Post(':id/publish')
@@ -93,6 +120,22 @@ export class MeetingsController {
   @RequirePermissions('meeting.create')
   create(@CurrentUser() user: AuthUser, @Body() body: CreateMeetingDto): Promise<unknown> {
     return this.meetingsService.create(user, body);
+  }
+
+  @Patch(':id')
+  @RequirePermissions('meeting.update')
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: UpdateMeetingDto,
+  ): Promise<unknown> {
+    return this.meetingsService.update(user, id, body);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('meeting.update')
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<unknown> {
+    return this.meetingsService.remove(user, id);
   }
 
   @Post(':id/schedule')

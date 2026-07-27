@@ -1,8 +1,8 @@
 # UrbanGate 2.0 — Project Planner
 
-**Status:** MVP-3 in progress (community) — MVP-2 finance closed  
+**Status:** MVP-5 facilities core shipped — initial product MVP path complete through Gate + Facilities  
 **Source of truth:** [URBANGATE-2-MASTER-SPEC.md](./URBANGATE-2-MASTER-SPEC.md)  
-**Last updated:** 2026-07-27
+**Last updated:** 2026-07-28
 
 This is the living roadmap for the UrbanGate 2.0 greenfield rebuild. Implementation must not invent major business rules when the master spec is ambiguous — add a TODO or request a decision instead.
 
@@ -147,27 +147,27 @@ All Phase 0 ADRs were **Accepted** on 2026-07-26. **Gate A is passed.** MVP-0 sc
 - [x] Complaints (create + status workflow)
 - [x] Notices (draft / publish / archive)
 - [x] Meetings (draft / schedule / complete / cancel + minutes)
-- [ ] Attachments
-- [ ] In-app / email notifications
+- [x] Attachments (metadata + local object storage; notice uploads in admin)
+- [x] In-app / email notifications (sync fan-out; console email in dev)
 
 ### MVP-4 — Gate
 
-- [ ] Security users
-- [ ] Security PWA
-- [ ] Visitors
-- [ ] Resident approval
-- [ ] Check-in / check-out
-- [ ] Member / unit lookup
-- [ ] Vehicle lookup
-- [ ] Emergency contacts
+- [x] Security users (SECURITY_GUARD / SUPERVISOR roles + demo `guard@urbangate.demo`)
+- [x] Security PWA (login, entry, list, lookup, emergency — `:3003`)
+- [x] Visitors (create / approve / reject / check-in / check-out)
+- [x] Resident approval (approve/reject endpoints for REQUESTED)
+- [x] Check-in / check-out
+- [x] Member / unit lookup
+- [x] Vehicle lookup (basic Vehicle model + search)
+- [x] Emergency contacts
 
 ### MVP-5 — Facilities and household
 
-- [ ] Amenities
-- [ ] Booking
-- [ ] Vehicles
-- [ ] Household / family
-- [ ] Service personnel
+- [x] Amenities
+- [x] Booking (overlap check + fee/deposit snapshot in paise)
+- [x] Vehicles (admin CRUD + gate lookup)
+- [x] Household / family
+- [x] Service personnel
 
 Native mobile applications are **not** required before the PWA MVP is validated.
 

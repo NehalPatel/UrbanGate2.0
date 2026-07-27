@@ -9,7 +9,7 @@
     "dev": "tsc -p tsconfig.json --watch",
     "generate": "prisma generate",
     "migrate:dev": "prisma db push",
-    "push": "prisma db push",
+    "push": "node --env-file=../../.env ./node_modules/prisma/build/index.js db push",
     "seed": "tsx --env-file=../../.env prisma/seed.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint --config ../../eslint.config.mjs src --max-warnings=0",

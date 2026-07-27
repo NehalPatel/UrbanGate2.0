@@ -14,6 +14,10 @@ import { UnitsModule } from './units/units.module';
 import { MembershipsModule } from './memberships/memberships.module';
 import { FinanceModule } from './finance/finance.module';
 import { CommunityModule } from './community/community.module';
+import { AttachmentsModule } from './attachments/attachments.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { GateModule } from './gate/gate.module';
+import { FacilitiesModule } from './facilities/facilities.module';
 
 @Module({
   imports: [
@@ -45,6 +49,10 @@ import { CommunityModule } from './community/community.module';
     MembershipsModule,
     FinanceModule,
     CommunityModule,
+    AttachmentsModule,
+    NotificationsModule,
+    GateModule,
+    FacilitiesModule,
     HealthModule,
   ],
   providers: [

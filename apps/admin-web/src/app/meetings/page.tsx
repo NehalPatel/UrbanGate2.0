@@ -3,7 +3,16 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '../../lib/api';
-import { btnPrimary, btnSecondary, Card, fieldClass, labelClass, PageHeader } from '../../components/ui';
+import {
+  btnPrimary,
+  btnSecondary,
+  Card,
+  DeleteIconButton,
+  EditIconButton,
+  fieldClass,
+  labelClass,
+  PageHeader,
+} from '../../components/ui';
 
 type Meeting = {
   id: string;
@@ -18,9 +27,17 @@ type Meeting = {
   minutes: string | null;
 };
 
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function MeetingsPage() {
   const router = useRouter();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [agenda, setAgenda] = useState('');
   const [location, setLocation] = useState('');
@@ -43,27 +60,45 @@ export default function MeetingsPage() {
     void load();
   }, []);
 
-  async function onCreate(e: FormEvent) {
+  function resetForm() {
+    setEditingId(null);
+    setTitle('');
+    setAgenda('');
+    setLocation('');
+    setScheduledAt('');
+  }
+
+  function startEdit(m: Meeting) {
+    setEditingId(m.id);
+    setTitle(m.title);
+    setAgenda(m.agenda);
+    setLocation(m.location ?? '');
+    setScheduledAt(toLocalInput(m.scheduledAt));
+    setError(null);
+  }
+
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await api('/meetings', {
-        method: 'POST',
-        body: JSON.stringify({
-          title,
-          agenda,
-          location: location || undefined,
-          scheduledAt: new Date(scheduledAt).toISOString(),
-          schedule: true,
-        }),
-      });
-      setTitle('');
-      setAgenda('');
-      setLocation('');
-      setScheduledAt('');
+      const body = {
+        title,
+        agenda,
+        location: location || undefined,
+        scheduledAt: new Date(scheduledAt).toISOString(),
+      };
+      if (editingId) {
+        await api(`/meetings/${editingId}`, { method: 'PATCH', body: JSON.stringify(body) });
+      } else {
+        await api('/meetings', {
+          method: 'POST',
+          body: JSON.stringify({ ...body, schedule: true }),
+        });
+      }
+      resetForm();
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Create failed');
+      setError(err instanceof ApiError ? err.message : 'Save failed');
     }
   }
 
@@ -85,6 +120,17 @@ export default function MeetingsPage() {
     await load();
   }
 
+  async function deleteMeeting(id: string, label: string) {
+    if (!window.confirm(`Delete meeting "${label}"?`)) return;
+    try {
+      await api(`/meetings/${id}`, { method: 'DELETE' });
+      if (editingId === id) resetForm();
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Delete failed');
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -95,8 +141,8 @@ export default function MeetingsPage() {
         ]}
       />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card title="Schedule meeting">
-          <form onSubmit={(e) => void onCreate(e)} className="space-y-4">
+        <Card title={editingId ? 'Edit meeting' : 'Schedule meeting'}>
+          <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
             <div>
               <label className={labelClass} htmlFor="title">
                 Title
@@ -147,9 +193,16 @@ export default function MeetingsPage() {
               />
             </div>
             {error ? <p className="text-theme-sm text-error-600">{error}</p> : null}
-            <button type="submit" className={btnPrimary}>
-              Create meeting
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className={btnPrimary}>
+                {editingId ? 'Save changes' : 'Create meeting'}
+              </button>
+              {editingId ? (
+                <button type="button" className={btnSecondary} onClick={resetForm}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </form>
         </Card>
         <div className="xl:col-span-2">
@@ -172,7 +225,8 @@ export default function MeetingsPage() {
                         <p className="mt-2 text-theme-sm text-gray-600">Minutes: {m.minutes}</p>
                       ) : null}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <EditIconButton onClick={() => startEdit(m)} />
                       {m.status === 'DRAFT' ? (
                         <button
                           type="button"
@@ -200,6 +254,7 @@ export default function MeetingsPage() {
                           </button>
                         </>
                       ) : null}
+                      <DeleteIconButton onClick={() => void deleteMeeting(m.id, m.title)} />
                     </div>
                   </div>
                 </li>

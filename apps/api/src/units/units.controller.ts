@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequirePermissions } from '../common/require-permissions.decorator';
@@ -37,5 +37,11 @@ export class UnitsController {
   @RequirePermissions('unit.update')
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: UpdateUnitDto) {
     return this.unitsService.update(user, id, body);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('unit.delete')
+  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.unitsService.remove(user, id);
   }
 }

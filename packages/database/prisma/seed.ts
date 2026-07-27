@@ -30,9 +30,20 @@ const DEMO_PASSWORD = 'Password123!';
 
 async function wipe() {
   // Child collections first
+  await prisma.servicePersonnelUnit.deleteMany();
+  await prisma.servicePersonnel.deleteMany();
+  await prisma.householdMember.deleteMany();
+  await prisma.amenityBooking.deleteMany();
+  await prisma.amenity.deleteMany();
+  await prisma.visitor.deleteMany();
+  await prisma.vehicle.deleteMany();
+  await prisma.emergencyContact.deleteMany();
+  await prisma.gate.deleteMany();
   await prisma.meeting.deleteMany();
   await prisma.complaint.deleteMany();
   await prisma.notice.deleteMany();
+  await prisma.attachment.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.paymentAllocation.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.invoiceLine.deleteMany();
@@ -99,6 +110,15 @@ async function seed() {
     },
   });
 
+  const guard = await prisma.user.create({
+    data: {
+      email: 'guard@urbangate.demo',
+      name: 'Gate Guard',
+      passwordHash,
+      status: 'ACTIVE',
+    },
+  });
+
   const society = await prisma.society.create({
     data: {
       name: 'Green Valley Residency',
@@ -133,6 +153,12 @@ async function seed() {
         societyId: society.id,
         userId: owner2.id,
         roleKeys: ['OWNER'],
+        status: 'active',
+      },
+      {
+        societyId: society.id,
+        userId: guard.id,
+        roleKeys: ['SECURITY_GUARD'],
         status: 'active',
       },
     ],
@@ -360,6 +386,137 @@ async function seed() {
     },
   });
 
+  await prisma.notification.createMany({
+    data: [
+      {
+        societyId: society.id,
+        userId: owner1.id,
+        channel: 'IN_APP',
+        type: 'notice.published',
+        title: 'Notice: Welcome to Green Valley',
+        body: 'Demo notice: AGM scheduled for next month.',
+        entityType: 'Notice',
+      },
+      {
+        societyId: society.id,
+        userId: admin.id,
+        channel: 'IN_APP',
+        type: 'complaint.status',
+        title: 'Complaint update: Lift noise on floor 1',
+        body: 'New complaint opened by a resident.',
+        entityType: 'Complaint',
+      },
+    ],
+  });
+
+  const mainGate = await prisma.gate.create({
+    data: {
+      societyId: society.id,
+      name: 'Main Gate',
+      code: 'MG-1',
+      active: true,
+    },
+  });
+
+  await prisma.emergencyContact.createMany({
+    data: [
+      {
+        societyId: society.id,
+        label: 'Security desk',
+        phone: '1800-000-1111',
+        category: 'SECURITY',
+        sortOrder: 1,
+      },
+      {
+        societyId: society.id,
+        label: 'Fire station',
+        phone: '101',
+        category: 'FIRE',
+        sortOrder: 2,
+      },
+    ],
+  });
+
+  await prisma.vehicle.create({
+    data: {
+      societyId: society.id,
+      unitId: unitA101.id,
+      registrationNumber: 'GJ01AB1234',
+      type: 'CAR',
+      makeModel: 'Honda City',
+      ownerName: 'Riya Sharma',
+      active: true,
+    },
+  });
+
+  await prisma.visitor.create({
+    data: {
+      societyId: society.id,
+      category: 'DELIVERY',
+      name: 'Courier Partner',
+      mobile: '9876500001',
+      purpose: 'Package delivery',
+      unitId: unitA101.id,
+      gateId: mainGate.id,
+      status: 'APPROVED',
+      requestedByUserId: owner1.id,
+      approvedByUserId: owner1.id,
+    },
+  });
+
+  const clubhouse = await prisma.amenity.create({
+    data: {
+      societyId: society.id,
+      name: 'Clubhouse',
+      description: 'Community hall for events',
+      capacity: 1,
+      feePaise: rupeesToPaise(500),
+      depositPaise: rupeesToPaise(1000),
+      slotMinutes: 120,
+      advanceBookingDays: 30,
+      active: true,
+    },
+  });
+
+  await prisma.amenityBooking.create({
+    data: {
+      societyId: society.id,
+      amenityId: clubhouse.id,
+      unitId: unitA101.id,
+      bookedByUserId: owner1.id,
+      startAt: new Date('2026-08-20T10:00:00.000Z'),
+      endAt: new Date('2026-08-20T12:00:00.000Z'),
+      status: 'CONFIRMED',
+      feePaise: clubhouse.feePaise,
+      depositPaise: clubhouse.depositPaise,
+    },
+  });
+
+  await prisma.householdMember.create({
+    data: {
+      societyId: society.id,
+      unitId: unitA101.id,
+      name: 'Kabir Sharma',
+      relation: 'SON',
+      mobile: '9876500101',
+      active: true,
+    },
+  });
+
+  await prisma.servicePersonnel.create({
+    data: {
+      societyId: society.id,
+      name: 'Sunita Devi',
+      mobile: '9876500202',
+      serviceType: 'MAID',
+      status: 'ACTIVE',
+      verificationStatus: 'VERIFIED',
+      units: {
+        create: [{ societyId: society.id, unitId: unitA101.id }],
+      },
+    },
+  });
+
   await prisma.auditLog.create({
     data: {
       actorUserId: admin.id,
@@ -378,6 +535,7 @@ async function seed() {
   console.log('  treasurer@urbangate.demo  (treasurer)');
   console.log('  owner1@urbangate.demo     (Wing A / 101)');
   console.log('  owner2@urbangate.demo     (Wing A / 102, Wing B / 201)');
+  console.log('  guard@urbangate.demo      (security guard)');
   console.log(`Society: ${society.name} (${society.slug})`);
 }
 

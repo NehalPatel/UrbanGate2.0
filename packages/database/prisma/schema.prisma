@@ -85,6 +85,21 @@ enum MeetingStatus {
   CANCELLED
 }
 
+enum VisitorStatus {
+  REQUESTED
+  APPROVED
+  CHECKED_IN
+  CHECKED_OUT
+  REJECTED
+}
+
+enum BookingStatus {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
 model User {
   id              String     @id @default(auto()) @map("_id") @db.ObjectId
   email           String     @unique
@@ -98,6 +113,7 @@ model User {
   sessions          Session[]
   memberships       SocietyMembership[]
   unitRelationships UnitRelationship[]
+  notifications     Notification[]
 }
 
 model Session {
@@ -132,6 +148,16 @@ model Society {
   notices           Notice[]
   complaints        Complaint[]
   meetings          Meeting[]
+  attachments       Attachment[]
+  notifications     Notification[]
+  gates             Gate[]
+  visitors          Visitor[]
+  emergencyContacts EmergencyContact[]
+  vehicles          Vehicle[]
+  amenities         Amenity[]
+  amenityBookings   AmenityBooking[]
+  householdMembers  HouseholdMember[]
+  servicePersonnel  ServicePersonnel[]
 }
 
 model SocietyMembership {
@@ -173,9 +199,14 @@ model Unit {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  relationships UnitRelationship[]
-  invoices      Invoice[]
-  payments      Payment[]
+  relationships    UnitRelationship[]
+  invoices         Invoice[]
+  payments         Payment[]
+  visitors         Visitor[]
+  vehicles         Vehicle[]
+  amenityBookings  AmenityBooking[]
+  householdMembers HouseholdMember[]
+  serviceLinks     ServicePersonnelUnit[]
 
   @@unique([societyId, buildingId, number])
 }
@@ -378,6 +409,211 @@ model Meeting {
   cancelledAt     DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+}
+
+/// Polymorphic file metadata; bytes live in object storage (ADR-007).
+model Attachment {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId        String   @db.ObjectId
+  society          Society  @relation(fields: [societyId], references: [id])
+  entityType       String
+  entityId         String
+  originalName     String
+  storageKey       String
+  mimeType         String
+  sizeBytes        Int
+  uploadedByUserId String   @db.ObjectId
+  createdAt        DateTime @default(now())
+
+  @@index([societyId, entityType, entityId])
+}
+
+model Notification {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  societyId  String?   @db.ObjectId
+  society    Society?  @relation(fields: [societyId], references: [id])
+  userId     String    @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id])
+  channel    String    @default("IN_APP")
+  type       String
+  title      String
+  body       String
+  entityType String?
+  entityId   String?
+  readAt     DateTime?
+  emailedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([societyId, userId])
+}
+
+model Gate {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId String   @db.ObjectId
+  society   Society  @relation(fields: [societyId], references: [id])
+  name      String
+  code      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  visitors Visitor[]
+
+  @@unique([societyId, name])
+}
+
+model Visitor {
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  societyId         String        @db.ObjectId
+  society           Society       @relation(fields: [societyId], references: [id])
+  category          String        @default("GUEST")
+  name              String
+  mobile            String
+  purpose           String?
+  vehicleNumber     String?
+  unitId            String?       @db.ObjectId
+  unit              Unit?         @relation(fields: [unitId], references: [id])
+  gateId            String?       @db.ObjectId
+  gate              Gate?         @relation(fields: [gateId], references: [id])
+  status            VisitorStatus @default(REQUESTED)
+  requestedByUserId String?       @db.ObjectId
+  approvedByUserId  String?       @db.ObjectId
+  checkedInByUserId String?       @db.ObjectId
+  checkedOutByUserId String?      @db.ObjectId
+  entryAt           DateTime?
+  exitAt            DateTime?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([societyId, status])
+  @@index([societyId, mobile])
+  @@index([societyId, vehicleNumber])
+}
+
+model EmergencyContact {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId String   @db.ObjectId
+  society   Society  @relation(fields: [societyId], references: [id])
+  label     String
+  phone     String
+  category  String   @default("OTHER")
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([societyId, active])
+}
+
+model Vehicle {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId          String   @db.ObjectId
+  society            Society  @relation(fields: [societyId], references: [id])
+  unitId             String?  @db.ObjectId
+  unit               Unit?    @relation(fields: [unitId], references: [id])
+  registrationNumber String
+  type               String   @default("CAR")
+  makeModel          String?
+  ownerName          String?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([societyId, registrationNumber])
+}
+
+model Amenity {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId          String   @db.ObjectId
+  society            Society  @relation(fields: [societyId], references: [id])
+  name               String
+  description        String?
+  capacity           Int      @default(1)
+  /// Fee in paise
+  feePaise           Int      @default(0)
+  /// Deposit in paise
+  depositPaise       Int      @default(0)
+  slotMinutes        Int      @default(60)
+  advanceBookingDays Int      @default(14)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  bookings AmenityBooking[]
+
+  @@unique([societyId, name])
+}
+
+model AmenityBooking {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  societyId       String        @db.ObjectId
+  society         Society       @relation(fields: [societyId], references: [id])
+  amenityId       String        @db.ObjectId
+  amenity         Amenity       @relation(fields: [amenityId], references: [id])
+  unitId          String?       @db.ObjectId
+  unit            Unit?         @relation(fields: [unitId], references: [id])
+  bookedByUserId  String        @db.ObjectId
+  startAt         DateTime
+  endAt           DateTime
+  status          BookingStatus @default(REQUESTED)
+  feePaise        Int           @default(0)
+  depositPaise    Int           @default(0)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([societyId, amenityId, startAt])
+  @@index([societyId, status])
+}
+
+model HouseholdMember {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId String   @db.ObjectId
+  society   Society  @relation(fields: [societyId], references: [id])
+  unitId    String   @db.ObjectId
+  unit      Unit     @relation(fields: [unitId], references: [id])
+  name      String
+  relation  String   @default("FAMILY")
+  mobile    String?
+  userId    String?  @db.ObjectId
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([societyId, unitId])
+}
+
+model ServicePersonnel {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  societyId          String   @db.ObjectId
+  society            Society  @relation(fields: [societyId], references: [id])
+  name               String
+  mobile             String
+  serviceType        String
+  status             String   @default("ACTIVE")
+  verificationStatus String   @default("UNVERIFIED")
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  units ServicePersonnelUnit[]
+
+  @@index([societyId, serviceType])
+  @@index([societyId, mobile])
+}
+
+model ServicePersonnelUnit {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  societyId   String           @db.ObjectId
+  personnelId String           @db.ObjectId
+  personnel   ServicePersonnel @relation(fields: [personnelId], references: [id])
+  unitId      String           @db.ObjectId
+  unit        Unit             @relation(fields: [unitId], references: [id])
+  createdAt   DateTime         @default(now())
+
+  @@unique([personnelId, unitId])
 }
 
 model HealthCheck {

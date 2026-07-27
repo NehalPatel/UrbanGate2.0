@@ -17,8 +17,13 @@ pnpm install
 pnpm mongo:rs          # local replica set on :27018
 pnpm db:generate
 pnpm db:reset          # push schema + demo seed
-pnpm --filter @urbangate/api --filter @urbangate/admin-web dev
+pnpm dev               # API + all web apps (pnpm recursive; no Turbo)
 ```
+
+Demo accounts (password `Password123!`):
+
+- `admin@urbangate.demo` — society admin (http://localhost:3000)
+- `guard@urbangate.demo` — security gate desk (http://localhost:3003)
 
 | Service | URL |
 |---------|-----|
@@ -28,6 +33,10 @@ pnpm --filter @urbangate/api --filter @urbangate/admin-web dev
 | Security web | http://localhost:3003 |
 | MongoDB (rs0) | `mongodb://127.0.0.1:27018/urbangate?replicaSet=rs0&directConnection=true` |
 | Redis | localhost:6379 (Compose / optional) |
+
+> **Database:** MongoDB is the primary store ([ADR-017](docs/decisions/017-mongodb.md)). A future PostgreSQL migration path is documented there but **not** active — do not install Postgres for this project unless that ADR is superseded.
+>
+> **Note:** Dev scripts use `pnpm -r` instead of Turborepo. On some Windows machines, Application Control blocks `turbo.exe` (`Error: spawn UNKNOWN`).
 
 ## Society setup
 

@@ -91,6 +91,37 @@ export class UnitsService {
     return unit;
   }
 
+  async remove(user: AuthUser, id: string) {
+    const societyId = this.societies.requireActiveSociety(user);
+    const existing = await this.prisma.unit.findFirst({ where: { id, societyId } });
+    if (!existing) {
+      throw new NotFoundException({ error: 'NOT_FOUND', message: 'Unit not found' });
+    }
+    const invoiceCount = await this.prisma.invoice.count({ where: { unitId: id, societyId } });
+    if (invoiceCount > 0) {
+      throw new BadRequestException({
+        error: 'UNIT_HAS_INVOICES',
+        message: 'Cannot delete a unit that has invoices',
+      });
+    }
+    await this.prisma.unitRelationship.deleteMany({ where: { unitId: id } });
+    await this.prisma.householdMember.deleteMany({ where: { unitId: id, societyId } });
+    await this.prisma.servicePersonnelUnit.deleteMany({ where: { unitId: id } });
+    await this.prisma.vehicle.updateMany({ where: { unitId: id }, data: { unitId: null } });
+    await this.prisma.visitor.updateMany({ where: { unitId: id }, data: { unitId: null } });
+    await this.prisma.amenityBooking.updateMany({ where: { unitId: id }, data: { unitId: null } });
+    await this.prisma.unit.delete({ where: { id } });
+    await this.audit.record({
+      actorUserId: user.id,
+      societyId,
+      action: 'unit.delete',
+      entityType: 'Unit',
+      entityId: id,
+      before: { number: existing.number },
+    });
+    return { ok: true };
+  }
+
   async assignRelationship(
     user: AuthUser,
     input: { unitId: string; userId: string; type: UnitRelationshipType },

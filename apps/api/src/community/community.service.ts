@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SocietiesService } from '../societies/societies.service';
 import type { AuthUser } from '../auth/auth.types';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class NoticesService {
@@ -20,6 +21,7 @@ export class NoticesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly societies: SocietiesService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(user: AuthUser) {
@@ -55,6 +57,19 @@ export class NoticesService {
       entityId: notice.id,
       after: { title: notice.title, status: notice.status },
     });
+    if (publish) {
+      const memberIds = await this.notifications.societyMemberUserIds(societyId);
+      await this.notifications.notifyMany({
+        societyId,
+        userIds: memberIds.filter((uid) => uid !== user.id),
+        type: 'notice.published',
+        title: `Notice: ${notice.title}`,
+        body: notice.body.slice(0, 280),
+        entityType: 'Notice',
+        entityId: notice.id,
+        email: true,
+      });
+    }
     return notice;
   }
 
@@ -79,6 +94,19 @@ export class NoticesService {
       entityType: 'Notice',
       entityId: id,
     });
+
+    const memberIds = await this.notifications.societyMemberUserIds(societyId);
+    await this.notifications.notifyMany({
+      societyId,
+      userIds: memberIds.filter((uid) => uid !== user.id),
+      type: 'notice.published',
+      title: `Notice: ${notice.title}`,
+      body: notice.body.slice(0, 280),
+      entityType: 'Notice',
+      entityId: notice.id,
+      email: true,
+    });
+
     return notice;
   }
 
@@ -93,6 +121,54 @@ export class NoticesService {
       data: { status: 'ARCHIVED', archivedAt: new Date() },
     });
   }
+
+  async update(
+    user: AuthUser,
+    id: string,
+    input: { title?: string; body?: string; audience?: string },
+  ) {
+    const societyId = this.societies.requireActiveSociety(user);
+    const existing = await this.prisma.notice.findFirst({ where: { id, societyId } });
+    if (!existing) {
+      throw new NotFoundException({ error: 'NOT_FOUND', message: 'Notice not found' });
+    }
+    const notice = await this.prisma.notice.update({
+      where: { id },
+      data: {
+        title: input.title?.trim() || undefined,
+        body: input.body?.trim() || undefined,
+        audience: input.audience?.trim() || undefined,
+      },
+    });
+    await this.audit.record({
+      actorUserId: user.id,
+      societyId,
+      action: 'notice.update',
+      entityType: 'Notice',
+      entityId: id,
+      before: { title: existing.title },
+      after: { title: notice.title },
+    });
+    return notice;
+  }
+
+  async remove(user: AuthUser, id: string) {
+    const societyId = this.societies.requireActiveSociety(user);
+    const existing = await this.prisma.notice.findFirst({ where: { id, societyId } });
+    if (!existing) {
+      throw new NotFoundException({ error: 'NOT_FOUND', message: 'Notice not found' });
+    }
+    await this.prisma.notice.delete({ where: { id } });
+    await this.audit.record({
+      actorUserId: user.id,
+      societyId,
+      action: 'notice.delete',
+      entityType: 'Notice',
+      entityId: id,
+      before: { title: existing.title },
+    });
+    return { ok: true };
+  }
 }
 
 @Injectable()
@@ -101,6 +177,7 @@ export class ComplaintsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly societies: SocietiesService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(user: AuthUser) {
@@ -188,6 +265,20 @@ export class ComplaintsService {
       entityId: id,
       before: { status: existing.status },
       after: { status: complaint.status },
+    });
+
+    const recipients = [existing.createdByUserId, complaint.assignedToUserId].filter(
+      (uid): uid is string => Boolean(uid) && uid !== user.id,
+    );
+    await this.notifications.notifyMany({
+      societyId,
+      userIds: recipients,
+      type: 'complaint.status',
+      title: `Complaint update: ${complaint.subject}`,
+      body: `Status changed to ${complaint.status}`,
+      entityType: 'Complaint',
+      entityId: complaint.id,
+      email: true,
     });
 
     return complaint;
@@ -351,5 +442,75 @@ export class MeetingsService {
     });
 
     return meeting;
+  }
+
+  async update(
+    user: AuthUser,
+    id: string,
+    input: {
+      title?: string;
+      agenda?: string;
+      scheduledAt?: string;
+      description?: string;
+      location?: string;
+      onlineLink?: string;
+      audience?: string;
+    },
+  ) {
+    const societyId = this.societies.requireActiveSociety(user);
+    const existing = await this.prisma.meeting.findFirst({ where: { id, societyId } });
+    if (!existing) {
+      throw new NotFoundException({ error: 'NOT_FOUND', message: 'Meeting not found' });
+    }
+    let scheduledAt: Date | undefined;
+    if (input.scheduledAt) {
+      scheduledAt = new Date(input.scheduledAt);
+      if (Number.isNaN(scheduledAt.getTime())) {
+        throw new BadRequestException({
+          error: 'INVALID_DATETIME',
+          message: 'scheduledAt must be a valid ISO date-time',
+        });
+      }
+    }
+    const meeting = await this.prisma.meeting.update({
+      where: { id },
+      data: {
+        title: input.title?.trim() || undefined,
+        agenda: input.agenda?.trim() || undefined,
+        scheduledAt,
+        description: input.description?.trim(),
+        location: input.location?.trim(),
+        onlineLink: input.onlineLink?.trim(),
+        audience: input.audience?.trim() || undefined,
+      },
+    });
+    await this.audit.record({
+      actorUserId: user.id,
+      societyId,
+      action: 'meeting.update',
+      entityType: 'Meeting',
+      entityId: id,
+      before: { title: existing.title },
+      after: { title: meeting.title },
+    });
+    return meeting;
+  }
+
+  async remove(user: AuthUser, id: string) {
+    const societyId = this.societies.requireActiveSociety(user);
+    const existing = await this.prisma.meeting.findFirst({ where: { id, societyId } });
+    if (!existing) {
+      throw new NotFoundException({ error: 'NOT_FOUND', message: 'Meeting not found' });
+    }
+    await this.prisma.meeting.delete({ where: { id } });
+    await this.audit.record({
+      actorUserId: user.id,
+      societyId,
+      action: 'meeting.delete',
+      entityType: 'Meeting',
+      entityId: id,
+      before: { title: existing.title },
+    });
+    return { ok: true };
   }
 }
