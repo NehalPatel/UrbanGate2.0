@@ -36,8 +36,13 @@ export class InvoicesService {
 
   async list(user: AuthUser) {
     const societyId = this.societies.requireActiveSociety(user);
+    const staff = this.societies.isSocietyStaff(user);
+    const unitIds = staff ? null : await this.societies.unitIdsForUser(user);
     const invoices = await this.prisma.invoice.findMany({
-      where: { societyId },
+      where: {
+        societyId,
+        ...(unitIds ? { unitId: { in: unitIds } } : {}),
+      },
       include: {
         unit: { include: { building: true } },
         lines: { orderBy: { sortOrder: 'asc' } },
@@ -115,8 +120,13 @@ export class PaymentsService {
 
   async list(user: AuthUser) {
     const societyId = this.societies.requireActiveSociety(user);
+    const staff = this.societies.isSocietyStaff(user);
+    const unitIds = staff ? null : await this.societies.unitIdsForUser(user);
     const payments = await this.prisma.payment.findMany({
-      where: { societyId },
+      where: {
+        societyId,
+        ...(unitIds ? { unitId: { in: unitIds } } : {}),
+      },
       include: { allocations: true, unit: true },
       orderBy: { paidAt: 'desc' },
     });

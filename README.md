@@ -23,6 +23,7 @@ pnpm dev               # API + all web apps (pnpm recursive; no Turbo)
 Demo accounts (password `Password123!`):
 
 - `admin@urbangate.demo` — society admin (http://localhost:3000)
+- `owner1@urbangate.demo` — resident portal (http://localhost:3002)
 - `guard@urbangate.demo` — security gate desk (http://localhost:3003)
 
 | Service | URL |

@@ -19,8 +19,14 @@ export class UnitsService {
 
   async list(user: AuthUser): Promise<unknown> {
     const societyId = this.societies.requireActiveSociety(user);
+    const unitIds = this.societies.shouldScopeToLinkedUnits(user)
+      ? await this.societies.unitIdsForUser(user)
+      : null;
     return this.prisma.unit.findMany({
-      where: { societyId },
+      where: {
+        societyId,
+        ...(unitIds ? { id: { in: unitIds } } : {}),
+      },
       include: { building: true, relationships: true },
       orderBy: [{ buildingId: 'asc' }, { number: 'asc' }],
     });

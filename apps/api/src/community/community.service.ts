@@ -26,8 +26,12 @@ export class NoticesService {
 
   async list(user: AuthUser) {
     const societyId = this.societies.requireActiveSociety(user);
+    const canManage = user.permissions.includes('notice.publish');
     return this.prisma.notice.findMany({
-      where: { societyId },
+      where: {
+        societyId,
+        ...(canManage ? {} : { status: 'PUBLISHED' }),
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -182,8 +186,19 @@ export class ComplaintsService {
 
   async list(user: AuthUser) {
     const societyId = this.societies.requireActiveSociety(user);
+    const canAssign = user.permissions.includes('complaint.assign');
+    if (canAssign) {
+      return this.prisma.complaint.findMany({
+        where: { societyId },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+    const unitIds = await this.societies.unitIdsForUser(user);
     return this.prisma.complaint.findMany({
-      where: { societyId },
+      where: {
+        societyId,
+        OR: [{ createdByUserId: user.id }, ...(unitIds.length ? [{ unitId: { in: unitIds } }] : [])],
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

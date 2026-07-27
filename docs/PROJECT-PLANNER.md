@@ -1,6 +1,6 @@
 # UrbanGate 2.0 — Project Planner
 
-**Status:** MVP-5 facilities core shipped — initial product MVP path complete through Gate + Facilities  
+**Status:** MVP-6 Resident PWA in progress — MVP-0–5 complete (admin + gate + facilities)  
 **Source of truth:** [URBANGATE-2-MASTER-SPEC.md](./URBANGATE-2-MASTER-SPEC.md)  
 **Last updated:** 2026-07-28
 
@@ -168,6 +168,19 @@ All Phase 0 ADRs were **Accepted** on 2026-07-26. **Gate A is passed.** MVP-0 sc
 - [x] Vehicles (admin CRUD + gate lookup)
 - [x] Household / family
 - [x] Service personnel
+
+### MVP-6 — Resident PWA (self-service)
+
+- [x] Resident login + mobile-first shell (`:3002`)
+- [x] Dashboard (outstanding, visitors, notices, notifications)
+- [x] My invoices (unit-scoped)
+- [x] Notices / meetings / notifications
+- [x] Visitors (invite + approve/reject)
+- [x] Complaints create + list
+- [x] Amenity booking
+- [x] Household / vehicles / emergency contacts
+- [ ] Documents module (deferred — attachments exist for notices)
+- [ ] PWA install manifest / offline shell polish
 
 Native mobile applications are **not** required before the PWA MVP is validated.
 

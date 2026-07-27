@@ -133,8 +133,12 @@ export class FacilitiesService {
 
   async listBookings(user: AuthUser) {
     const societyId = this.societies.requireActiveSociety(user);
+    const staff = user.permissions.includes('booking.manage');
     const rows = await this.prisma.amenityBooking.findMany({
-      where: { societyId },
+      where: {
+        societyId,
+        ...(staff ? {} : { bookedByUserId: user.id }),
+      },
       orderBy: { startAt: 'desc' },
       take: 100,
     });
@@ -275,8 +279,15 @@ export class FacilitiesService {
 
   async listHousehold(user: AuthUser, unitId?: string) {
     const societyId = this.societies.requireActiveSociety(user);
+    const staff = this.societies.isSocietyStaff(user);
+    const scopedUnits = staff ? null : await this.societies.unitIdsForUser(user);
     return this.prisma.householdMember.findMany({
-      where: { societyId, active: true, ...(unitId ? { unitId } : {}) },
+      where: {
+        societyId,
+        active: true,
+        ...(unitId ? { unitId } : {}),
+        ...(scopedUnits ? { unitId: { in: scopedUnits } } : {}),
+      },
       orderBy: { name: 'asc' },
     });
   }

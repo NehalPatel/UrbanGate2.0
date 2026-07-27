@@ -96,10 +96,22 @@ export class GateService {
 
   async listVisitors(user: AuthUser, status?: string) {
     const societyId = this.societies.requireActiveSociety(user);
+    const staff =
+      user.permissions.includes('visitor.checkin') ||
+      user.permissions.includes('gate.manage');
+    const unitIds = staff ? null : await this.societies.unitIdsForUser(user);
     return this.prisma.visitor.findMany({
       where: {
         societyId,
         ...(status ? { status: status as VisitorStatus } : {}),
+        ...(unitIds
+          ? {
+              OR: [
+                { requestedByUserId: user.id },
+                ...(unitIds.length ? [{ unitId: { in: unitIds } }] : []),
+              ],
+            }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -275,8 +287,17 @@ export class GateService {
   async listVehicles(user: AuthUser, q?: string) {
     const societyId = this.societies.requireActiveSociety(user);
     const query = q?.trim().toUpperCase();
+    const staff =
+      this.societies.isSocietyStaff(user) ||
+      user.permissions.includes('visitor.checkin') ||
+      user.permissions.includes('gate.manage');
+    const unitIds = staff ? null : await this.societies.unitIdsForUser(user);
     const rows = await this.prisma.vehicle.findMany({
-      where: { societyId, active: true },
+      where: {
+        societyId,
+        active: true,
+        ...(unitIds ? { unitId: { in: unitIds } } : {}),
+      },
       orderBy: { registrationNumber: 'asc' },
       take: 100,
     });

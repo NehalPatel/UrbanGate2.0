@@ -132,4 +132,35 @@ export class SocietiesService {
     this.assertSocietyAccess(user, user.activeSocietyId);
     return user.activeSocietyId;
   }
+
+  /** Society staff see society-wide data; residents are scoped to linked units. */
+  isSocietyStaff(user: AuthUser): boolean {
+    if (user.isPlatformAdmin) return true;
+    return (
+      user.permissions.includes('invoice.create') ||
+      user.permissions.includes('member.invite') ||
+      user.permissions.includes('society.update') ||
+      user.permissions.includes('gate.manage') ||
+      user.permissions.includes('building.create')
+    );
+  }
+
+  /** Gate ops and admins need society-wide unit lists; residents see linked units only. */
+  shouldScopeToLinkedUnits(user: AuthUser): boolean {
+    if (this.isSocietyStaff(user)) return false;
+    if (user.permissions.includes('visitor.checkin')) return false;
+    if (user.permissions.includes('member.view') && user.permissions.includes('complaint.assign')) {
+      return false;
+    }
+    return true;
+  }
+
+  async unitIdsForUser(user: AuthUser): Promise<string[]> {
+    const societyId = this.requireActiveSociety(user);
+    const rels = await this.prisma.unitRelationship.findMany({
+      where: { societyId, userId: user.id },
+      select: { unitId: true },
+    });
+    return [...new Set(rels.map((r) => r.unitId))];
+  }
 }
