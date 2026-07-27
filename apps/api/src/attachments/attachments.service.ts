@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { SocietiesService } from '../societies/societies.service';
 import { StorageService } from '../storage/storage.service';
 import type { AuthUser } from '../auth/auth.types';
+import { ATTACHMENT_ENTITY_TYPES, isAllowedAttachmentEntity } from './attachment.rules';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
@@ -22,8 +23,6 @@ const ALLOWED_MIME = new Set([
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
-
-const ENTITY_TYPES = new Set(['Notice', 'Complaint', 'Meeting', 'SocietyDocument']);
 
 @Injectable()
 export class AttachmentsService {
@@ -55,10 +54,10 @@ export class AttachmentsService {
     },
   ) {
     const societyId = this.societies.requireActiveSociety(user);
-    if (!ENTITY_TYPES.has(input.entityType)) {
+    if (!isAllowedAttachmentEntity(input.entityType)) {
       throw new BadRequestException({
         error: 'INVALID_ENTITY',
-        message: `entityType must be one of ${[...ENTITY_TYPES].join(', ')}`,
+        message: `entityType must be one of ${ATTACHMENT_ENTITY_TYPES.join(', ')}`,
       });
     }
     if (input.size <= 0 || input.size > MAX_BYTES) {
@@ -149,7 +148,9 @@ export class AttachmentsService {
     } else if (entityType === 'Meeting') {
       ok = Boolean(await this.prisma.meeting.findFirst({ where: { id: entityId, societyId } }));
     } else if (entityType === 'SocietyDocument') {
-      ok = Boolean(await this.prisma.society.findFirst({ where: { id: entityId } })) && entityId === societyId;
+      ok = Boolean(
+        await this.prisma.societyDocument.findFirst({ where: { id: entityId, societyId } }),
+      );
     }
     if (!ok) {
       throw new BadRequestException({

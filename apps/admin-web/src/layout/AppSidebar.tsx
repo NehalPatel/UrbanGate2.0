@@ -40,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/notices', label: 'Notices', icon: MegaphoneIcon },
       { href: '/complaints', label: 'Complaints', icon: AlertIcon },
       { href: '/meetings', label: 'Meetings', icon: CalendarIcon },
+      { href: '/documents', label: 'Documents', icon: FileIcon },
     ],
   },
   {
@@ -398,6 +399,20 @@ function HomeIcon() {
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2v-9Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm0 0v6h6M8 13h8M8 17h8M8 9h2"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"

@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { SocietiesService } from '../societies/societies.service';
 import type { AuthUser } from '../auth/auth.types';
 import { rupeesToPaise, paiseToRupees } from '../finance/money';
+import { isCapacityExceeded } from './booking.rules';
 
 @Injectable()
 export class FacilitiesService {
@@ -200,7 +201,7 @@ export class FacilitiesService {
         },
         take: amenity.capacity,
       });
-      if (overlapping.length >= amenity.capacity) {
+      if (isCapacityExceeded(overlapping.length, amenity.capacity)) {
         throw new BadRequestException({
           error: 'SLOT_UNAVAILABLE',
           message: 'Amenity is fully booked for this time range',

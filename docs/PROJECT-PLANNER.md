@@ -1,6 +1,6 @@
 # UrbanGate 2.0 — Project Planner
 
-**Status:** MVP-6 Resident PWA in progress — MVP-0–5 complete (admin + gate + facilities)  
+**Status:** MVP complete (MVP-0–6) — Gate C+ unit coverage for tenancy / RBAC / billing / booking / visitor / files  
 **Source of truth:** [URBANGATE-2-MASTER-SPEC.md](./URBANGATE-2-MASTER-SPEC.md)  
 **Last updated:** 2026-07-28
 
@@ -179,8 +179,8 @@ All Phase 0 ADRs were **Accepted** on 2026-07-26. **Gate A is passed.** MVP-0 sc
 - [x] Complaints create + list
 - [x] Amenity booking
 - [x] Household / vehicles / emergency contacts
-- [ ] Documents module (deferred — attachments exist for notices)
-- [ ] PWA install manifest / offline shell polish
+- [x] Documents module (admin + resident; `SocietyDocument` + attachments)
+- [x] PWA install manifest / offline shell polish (resident + security)
 
 Native mobile applications are **not** required before the PWA MVP is validated.
 
@@ -213,7 +213,7 @@ Architecture may leave room for these without building them now.
 |------|----------|--------------------|
 | **A** | All Phase 0 ADRs Accepted | **Passed** (2026-07-26) |
 | **B** | MVP-0 foundation reviewed | **Passed** — MVP-1 underway |
-| **C+** | Each MVP slice ships with required tests (tenancy, RBAC, billing, booking, visitor, files as applicable) | Pending |
+| **C+** | Each MVP slice ships with required tests (tenancy, RBAC, billing, booking, visitor, files as applicable) | **Passed** — unit specs for tenancy scope, permissions RBAC, money/billing, booking capacity, visitor transitions, attachment entity types |
 
 Do **not** implement business modules until Gate B is passed.
 

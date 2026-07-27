@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SocietiesService } from '../societies/societies.service';
 import type { AuthUser } from '../auth/auth.types';
+import { canTransitionVisitor } from './visitor.rules';
 
 @Injectable()
 export class GateService {
@@ -443,7 +444,7 @@ export class GateService {
     if (!existing) {
       throw new NotFoundException({ error: 'NOT_FOUND', message: 'Visitor not found' });
     }
-    if (!from.includes(existing.status)) {
+    if (!from.includes(existing.status) || !canTransitionVisitor(existing.status, to)) {
       throw new BadRequestException({
         error: 'INVALID_STATUS',
         message: `Cannot move from ${existing.status} to ${to}`,

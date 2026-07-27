@@ -18,6 +18,7 @@ import { AttachmentsModule } from './attachments/attachments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { GateModule } from './gate/gate.module';
 import { FacilitiesModule } from './facilities/facilities.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { FacilitiesModule } from './facilities/facilities.module';
     NotificationsModule,
     GateModule,
     FacilitiesModule,
+    DocumentsModule,
     HealthModule,
   ],
   providers: [

@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
+import { shouldScopeToLinkedUnits as computeLinkedUnitScope } from './tenancy.rules';
 
 function slugify(name: string) {
   return name
@@ -147,12 +148,10 @@ export class SocietiesService {
 
   /** Gate ops and admins need society-wide unit lists; residents see linked units only. */
   shouldScopeToLinkedUnits(user: AuthUser): boolean {
-    if (this.isSocietyStaff(user)) return false;
-    if (user.permissions.includes('visitor.checkin')) return false;
-    if (user.permissions.includes('member.view') && user.permissions.includes('complaint.assign')) {
-      return false;
-    }
-    return true;
+    return computeLinkedUnitScope({
+      isPlatformAdmin: user.isPlatformAdmin,
+      permissions: user.permissions,
+    });
   }
 
   async unitIdsForUser(user: AuthUser): Promise<string[]> {

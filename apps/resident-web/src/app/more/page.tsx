@@ -8,6 +8,7 @@ import type { MeResponse } from '../../lib/auth';
 
 const LINKS = [
   { href: '/complaints', label: 'Complaints', hint: 'Raise and track issues' },
+  { href: '/documents', label: 'Documents', hint: 'Bylaws and circulars' },
   { href: '/amenities', label: 'Amenities', hint: 'Book facilities' },
   { href: '/meetings', label: 'Meetings', hint: 'Society calendar' },
   { href: '/household', label: 'Household', hint: 'Family members' },
